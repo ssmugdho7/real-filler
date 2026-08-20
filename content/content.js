@@ -19,6 +19,11 @@ const CONFIG = {
   FUZZY_THRESHOLD: 0.8,
 };
 
+// Bail out on restricted pages where chrome.storage is unavailable
+if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+  // Do nothing — extension context not available on this page
+} else {
+
 // ---------- Helpers ----------
 
 function normalize(text) {
@@ -353,3 +358,5 @@ init();
 // Observe for dynamic section loading (works for both modes)
 const observer = new MutationObserver(() => autoFill());
 observer.observe(document.body, { childList: true, subtree: true });
+
+} // end else (chrome.storage available)
