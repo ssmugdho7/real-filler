@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Real Filler Pro</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Real Filler <span>PRO</span></h1>
+      <div class="profile-selector">
+        <select id="current-profile">
+          <option value="default">Default Profile</option>
+        </select>
+        <button id="add-profile" title="Add Profile">+</button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="data">Learned Data</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </div>
+
+    <div id="data-tab" class="tab-content active">
+      <div id="data-list" class="data-list">
+        <!-- Items injected here -->
+      </div>
+    </div>
+
+    <div id="settings-tab" class="tab-content">
+      <div class="setting-item">
+        <label>Auto-fill on load</label>
+        <input type="checkbox" id="auto-fill-toggle" checked>
+      </div>
+      <div class="setting-item">
+        <button id="clear-profile" class="danger-outline">Clear Current Profile</button>
+      </div>
+      <div class="setting-item">
+        <button id="clear-all" class="danger">Delete All Profiles</button>
+      </div>
+    </div>
+
+    <footer>
+      <button id="manual-fill-btn" class="primary-btn">Fill Current Form</button>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

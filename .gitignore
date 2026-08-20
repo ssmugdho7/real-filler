@@ -1,0 +1,16 @@
+# OS metadata files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Output files
+*.zip
+*.tar.gz
