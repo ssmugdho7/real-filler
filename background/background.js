@@ -2,9 +2,8 @@
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "fillForm",
-    title: "Fill this form (Real Filler)",
+    title: "Fill this page (Real Filler)",
     contexts: ["all"],
-    documentUrlPatterns: ["https://docs.google.com/forms/*"]
   });
 });
 
@@ -14,6 +13,3 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, { action: "manualFill" });
   }
 });
-
-// The chrome.action.onClicked listener is removed because a popup is defined.
-// The popup now handles the manual trigger button.
