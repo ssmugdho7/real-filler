@@ -34,6 +34,18 @@ function normalize(text) {
     .replace(/\s+/g, ' ');
 }
 
+function isSearchInput(input) {
+  if (!input) return false;
+  if (input.type === 'search') return true;
+  const role = input.getAttribute('role');
+  if (role === 'searchbox' || role === 'search') return true;
+  const needle = (input.getAttribute('placeholder') || input.getAttribute('name') || input.id || '').toLowerCase();
+  if (/\bsearch\b/.test(needle)) return true;
+  const form = input.closest('form');
+  if (form && /search/i.test((form.className || '') + ' ' + (form.id || ''))) return true;
+  return false;
+}
+
 function isGoogleForms() {
   return window.location.hostname === 'docs.google.com'
     && window.location.pathname.startsWith('/forms/');
@@ -138,6 +150,8 @@ function getGenericFormFields() {
     if (seen.has(input)) return;
     // Skip hidden inputs
     if (input.type === 'hidden' || input.offsetParent === null) return;
+    // Skip search inputs — don't learn/fill search terms
+    if (isSearchInput(input)) return;
 
     const label = findInputLabel(input);
     if (!label) return;
