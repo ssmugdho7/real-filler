@@ -226,7 +226,12 @@ function getFormFields() {
 
 // ---------- Auto-Fill ----------
 
-async function autoFill() {
+// Tracks fields already filled this session so we never overwrite a user's edit.
+const filledElements = new Set();
+
+async function autoFill(force = false) {
+  if (force) filledElements.clear();
+
   const { currentProfile = 'default', profiles = {} } = await chrome.storage.local.get(['currentProfile', 'profiles']);
   const learnedData = profiles[currentProfile] || {};
   const fields = getFormFields();
@@ -236,18 +241,25 @@ async function autoFill() {
     if (!savedValue) return;
 
     if (field.type === 'text') {
+      // Only fill once; never clobber a value the user has typed.
+      if (filledElements.has(field.element)) return;
+      if (!force && field.element.value.trim() !== '') return;
       if (field.element.value !== savedValue) {
         field.element.value = savedValue;
         triggerEvents(field.element);
       }
+      filledElements.add(field.element);
     } else if (field.type === 'select') {
+      if (filledElements.has(field.element)) return;
       const options = Array.from(field.element.options);
       const match = options.find(opt => normalize(opt.text) === normalize(savedValue) || opt.value === savedValue);
       if (match && field.element.value !== match.value) {
         field.element.value = match.value;
         triggerEvents(field.element);
       }
+      filledElements.add(field.element);
     } else if (field.type === 'option' || field.type === 'radio') {
+      if (field.elements.some(opt => filledElements.has(opt))) return;
       field.elements.forEach(opt => {
         const optValue = opt.getAttribute('data-value') || opt.innerText?.trim() || opt.value || '';
         if (normalize(optValue) === normalize(savedValue)) {
@@ -256,11 +268,14 @@ async function autoFill() {
           }
         }
       });
+      field.elements.forEach(opt => filledElements.add(opt));
     } else if (field.type === 'checkbox') {
+      if (filledElements.has(field.element)) return;
       const shouldCheck = normalize(savedValue) === 'true' || normalize(savedValue) === 'yes' || normalize(savedValue) === 'checked';
       if (field.element.checked !== shouldCheck) {
         field.element.click();
       }
+      filledElements.add(field.element);
     }
   });
 }
@@ -351,7 +366,7 @@ document.addEventListener('change', (e) => {
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.action === 'manualFill') {
-    autoFill();
+    autoFill(true);
   }
 });
 
