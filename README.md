@@ -4,6 +4,8 @@
 
 > **Version 1.2** — This release adds **Templates (Paste-to-Fill)** and **iframe support**, closing the gap with commercial fillers that market "paste free-form text → auto-map fields." See [What's New in v1.2](#whats-new-in-v12) and the [version comparison](#previous-version-vs-current-version) below.
 
+> **বাংলায় সংক্ষেপে:** রিয়েল ফিলার একটি গোপনীয়তা-বান্ধব ক্রোম এক্সটেনশন যা গুগল ফর্ম ও যেকোনো ওয়েবসাইটের ফর্ম স্বয়ংক্রিয় পূরণ করে—আপনার তথ্য সবসময় ব্রাউজারেই থাকে, কোথাও পাঠানো হয় না। নতুন **v1.2** আপডেটে **টেমপ্লেট (পেস্ট-টু-ফিল)** যুক্ত হয়েছে, যাতে রেজুমে বা নোট পেস্ট করে এক ক্লিকে ফর্মের ঘরগুলো পূরণ করা যায়, এবং **iframe সাপোর্ট** যোগ হয়েছে যাতে এমবেড করা ফর্মও ভরা যায়।
+
 ---
 
 ## What's New in v1.2
