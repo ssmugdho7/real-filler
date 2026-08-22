@@ -205,9 +205,84 @@ footer {
   width: 100%;
 }
 
+.setting-item.column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.setting-item.column label,
+.setting-item label .hint {
+  font-size: 0.8rem;
+  color: #70757a;
+}
+
+.setting-group {
+  border-left: 3px solid var(--primary);
+}
+
+.setting-subgroup {
+  margin: -8px 0 16px 0;
+  padding: 0 8px;
+}
+
+.setting-note {
+  font-size: 0.72rem;
+  color: #b9251c;
+  background: #fce8e6;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.text-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  box-sizing: border-box;
+}
+
 .empty-msg {
   text-align: center;
   padding: 40px 20px;
   color: #70757a;
   font-style: italic;
+}
+
+.tab-desc {
+  font-size: 0.78rem;
+  color: #5f6368;
+  line-height: 1.4;
+  margin: 0 0 12px 0;
+}
+
+.template-area {
+  min-height: 180px;
+  resize: vertical;
+  font-family: 'Roboto Mono', monospace;
+  line-height: 1.5;
+}
+
+.template-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.template-actions .small {
+  width: auto;
+  flex: 1;
+  padding: 8px;
+  font-size: 0.82rem;
+  border-radius: 6px;
+}
+
+.template-status {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: #188038;
+  min-height: 1em;
 }

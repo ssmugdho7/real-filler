@@ -19,6 +19,7 @@
 
     <div class="tabs">
       <button class="tab-btn active" data-tab="data">Learned Data</button>
+      <button class="tab-btn" data-tab="templates">Templates</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
     </div>
 
@@ -28,11 +29,66 @@
       </div>
     </div>
 
+    <div id="templates-tab" class="tab-content">
+      <p class="tab-desc">
+        Paste free-form info (resume, bio, notes). On <strong>Fill Current Page</strong>
+        we map it onto the form's fields — no re-typing.
+      </p>
+      <textarea id="template-input" class="text-input template-area"
+        placeholder="e.g.
+Name: Jane Doe
+Email: jane@example.com
+Phone: (555) 123-4567
+City: Austin"></textarea>
+      <div class="template-actions">
+        <button id="template-save" class="primary-btn small">Save Template</button>
+        <button id="template-clear" class="danger-outline small">Clear</button>
+      </div>
+      <div id="template-status" class="template-status"></div>
+    </div>
+
     <div id="settings-tab" class="tab-content">
       <div class="setting-item">
         <label>Auto-fill on load</label>
         <input type="checkbox" id="auto-fill-toggle" checked>
       </div>
+
+      <div class="setting-item setting-group">
+        <label>Sentence autocomplete <span class="hint">(off by default)</span></label>
+        <input type="checkbox" id="sentence-autocomplete-toggle">
+      </div>
+
+      <div id="llm-settings" class="setting-subgroup" hidden>
+        <div class="setting-item">
+          <label>Use LLM for suggestions</label>
+          <input type="checkbox" id="llm-enabled-toggle">
+        </div>
+        <div class="setting-item column">
+          <label>Provider</label>
+          <select id="llm-provider" class="text-input">
+            <option value="openai">OpenAI-compatible</option>
+            <option value="gemini">Google Gemini</option>
+          </select>
+        </div>
+        <div class="setting-item column" id="llm-endpoint-item">
+          <label>LLM Endpoint URL</label>
+          <input type="text" id="llm-endpoint" class="text-input" placeholder="https://api.openai.com/v1/chat/completions">
+        </div>
+        <div class="setting-item column">
+          <label>Model</label>
+          <input type="text" id="llm-model" class="text-input" placeholder="gpt-4o-mini">
+        </div>
+        <div class="setting-item column">
+          <label>API Key</label>
+          <input type="password" id="llm-api-key" class="text-input" placeholder="sk-... or Gemini key">
+        </div>
+        <div class="setting-note">
+          Warning: enabling the LLM sends the text you type (and your learned
+          writing samples) to a third-party endpoint. This breaks the offline,
+          privacy-first model for those suggestions.
+        </div>
+      </div>
+
       <div class="setting-item">
         <button id="clear-profile" class="danger-outline">Clear Current Profile</button>
       </div>

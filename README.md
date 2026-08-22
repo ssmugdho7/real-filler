@@ -2,6 +2,36 @@
 
 **Real Filler** is a modern, high-performance Chrome extension that automates the tedious process of filling out repetitive forms and input fields. It works on **Google Forms** and **any website** with standard HTML inputs. By leveraging context-aware matching algorithms and browser-native local storage, Real Filler learns from your submissions and instantly pre-fills matching fields in future visits.
 
+> **Version 1.2** — This release adds **Templates (Paste-to-Fill)** and **iframe support**, closing the gap with commercial fillers that market "paste free-form text → auto-map fields." See [What's New in v1.2](#whats-new-in-v12) and the [version comparison](#previous-version-vs-current-version) below.
+
+---
+
+## What's New in v1.2
+
+- **Templates (Paste-to-Fill):** Paste a resume, bio, or notes into the new **Templates** tab and Real Filler maps it onto a form's fields with one click. A local extractor pulls out emails, phones, URLs, names, addresses, and `Key: Value` pairs offline; an optional LLM pass (reusing the existing Gemini/OpenAI settings) covers non-standard labels.
+- **Per-profile Templates:** Each profile stores its own raw pasted snippet. Facts are extracted at fill time, so improving the extractor needs no re-saving.
+- **iframe Support:** The content script now runs in every frame (`all_frames: true`), and **Fill Current Page** forwards the fill into embedded iframes so nested forms get filled too.
+- **Template + Learned Fusion:** On fill, template facts take precedence, and any field the template doesn't cover still falls back to your learned `label → value` data — nothing is lost.
+
+## Previous Version vs Current Version
+
+| Capability | v1.1 (previous) | v1.2 (current) |
+| --- | --- | --- |
+| Google Forms auto-fill | ✅ | ✅ |
+| Universal website auto-fill | ✅ | ✅ |
+| Multi-profile personas | ✅ | ✅ |
+| Continuous auto-learning (`label → value`) | ✅ | ✅ |
+| 8+ label-detection strategies | ✅ | ✅ |
+| `MutationObserver` retry for lazy loads | ✅ | ✅ |
+| Native event dispatching (`input`/`change`/`blur`) | ✅ | ✅ |
+| Sentence autocomplete (local n-gram + opt-in LLM) | ✅ | ✅ |
+| **Paste free-form text → auto-map fields (Templates)** | ❌ | ✅ *(new)* |
+| **iframe / embedded-form filling** | ❌ (top frame only) | ✅ *(new)* |
+| **Per-profile paste templates** | ❌ | ✅ *(new)* |
+| **Offline-first + optional LLM mapping for paste text** | ❌ | ✅ *(new)* |
+
+In short: v1.1 was a strong *learned* filler — it remembered exactly what you typed into each labeled field and replayed it. v1.2 keeps all of that and **adds the ability to fill arbitrary forms from unstructured text you paste once**, plus it now reaches forms inside iframes.
+
 ---
 
 ## Why Real Filler Stands Out
@@ -36,6 +66,50 @@ Your data is yours alone. Real Filler operates **entirely offline**. All learned
 *   **Multi-Profile Panel:** Create, rename, and select profiles on the fly.
 *   **Granular Data Management:** View all learned data categorized by label. Delete individual entries, clear a profile, or wipe everything.
 *   **Native Event Dispatching:** Dispatches `input`, `change`, and `blur` events so websites register the inputs as valid user entries.
+
+---
+
+## Sentence Autocomplete (Opt-in)
+
+Real Filler can **autocomplete sentences** as you type in text inputs and textareas, using a model built entirely from **your own past submissions and word choices**. This feature is **OFF by default** — you must enable it manually.
+
+### How to enable
+1. Open the popup and go to the **Settings** tab.
+2. Check **Sentence autocomplete**. (A warning note appears.)
+3. Start typing in any text field. A muted inline *ghost* continuation appears after your caret.
+4. Press **Tab** (or **→** at the end of the field) to accept it, or **Esc** to dismiss.
+
+### How suggestions are generated
+* **Default (local, offline):** Your submissions are accumulated into a per-profile **corpus**. A lightweight in-memory n-gram model predicts the most likely next word(s) from your own writing style. Nothing leaves your browser.
+* **Optional LLM mode:** In Settings, expand the LLM options and check **Use LLM for suggestions**. Choose a **Provider**:
+  * *OpenAI-compatible* — set the **Endpoint URL**, **Model** (e.g. `gpt-4o-mini`), and **API Key**.
+  * *Google Gemini* — set **Model** (e.g. `gemini-1.5-flash`) and your **API Key**; the endpoint is built automatically.
+  * Suggestions are then fetched from your configured endpoint. ⚠️ This sends the text you type (and your learned samples) to a third party and breaks the offline/privacy-first model for those suggestions.
+
+### Privacy notes
+* The corpus is stored locally in `chrome.storage.local` per profile, separate from the auto-fill `label → value` map.
+* Search, password, email, URL, tel, number, and similar non-prose fields are excluded.
+* The feature only activates on the field you are actively focused in, and never while auto-filling.
+
+---
+
+## Templates: Paste-to-Fill (Opt-in, Hybrid)
+
+Real Filler can fill **arbitrary forms from a block of free-form text** — a resume, bio, or notes — without you mapping each field by hand. Paste your info once, then hit **Fill Current Page** and the extension maps it onto the page's fields.
+
+### How it works
+* **Default (local, offline):** A built-in extractor pulls structured facts from your text — email, phone, URL, name, address, and any `Key: Value` / `Key - Value` / `Key = Value` pairs. Each form field is matched by label (exact, type-based like "email"/"phone"/"name", or fuzzy). Nothing leaves your browser.
+* **Optional LLM mapping:** When the LLM is enabled in Settings, an extra pass asks your configured provider to map fields the local extractor can't guess. ⚠️ This sends your pasted text **and** the form's field labels to a third party, breaking the offline/privacy-first model.
+
+### How to use
+1. Open the popup and go to the **Templates** tab.
+2. Paste your free-form info (or use `Key: Value` lines for best results).
+3. Click **Save Template** (saved per active profile).
+4. Open a form and click **Fill Current Page** (or use the right-click menu). Template facts fill the matching fields; any field the template doesn't cover still falls back to your learned `label → value` data.
+
+### Notes
+* Templates fill on manual trigger only (button/context menu). Automatic page-load fill still uses learned data only.
+* Iframes are supported — the content script runs in every frame.
 
 ---
 
