@@ -592,21 +592,43 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 // ---------- Initialization ----------
 
+let autoFillOnLoadEnabled = false;
+
+async function loadAutoFillSetting() {
+  try {
+    const data = await chrome.storage.local.get('settings');
+    autoFillOnLoadEnabled = (data.settings || {}).autoFillOnLoad === true;
+  } catch {
+    autoFillOnLoadEnabled = false;
+  }
+}
+
 let attempts = 0;
 
 function init() {
-  autoFill();
+  if (autoFillOnLoadEnabled) {
+    autoFill();
+  }
   if (attempts < CONFIG.MAX_RETRIES) {
     attempts++;
     setTimeout(init, CONFIG.RETRY_DELAY);
   }
 }
 
-init();
+loadAutoFillSetting().then(() => init());
 
 // Observe for dynamic section loading (works for both modes)
-const observer = new MutationObserver(() => autoFill());
+const observer = new MutationObserver(() => {
+  if (autoFillOnLoadEnabled) autoFill();
+});
 observer.observe(document.body, { childList: true, subtree: true });
+
+// Listen for setting changes in real time
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) {
+    autoFillOnLoadEnabled = (changes.settings.newValue || {}).autoFillOnLoad === true;
+  }
+});
 
 // ---------- Sentence Autocomplete ----------
 // Off by default; enabled via the "Sentence autocomplete" toggle in the popup.

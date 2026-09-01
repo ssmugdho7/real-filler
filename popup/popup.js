@@ -197,6 +197,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Auto-fill on load toggle
+  const autoFillToggle = document.getElementById('auto-fill-toggle');
+  // Load saved state
+  const autoFillData = await chrome.storage.local.get('settings');
+  autoFillToggle.checked = (autoFillData.settings || {}).autoFillOnLoad === true;
+  autoFillToggle.addEventListener('change', async (e) => {
+    await saveSettings({ autoFillOnLoad: e.target.checked });
+  });
+
   // Sentence autocomplete settings
   sentenceToggle.addEventListener('change', async (e) => {
     const on = e.target.checked;
