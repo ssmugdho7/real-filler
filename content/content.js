@@ -593,6 +593,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 // ---------- Initialization ----------
 
 let autoFillOnLoadEnabled = false;
+let settingLoaded = false;
 
 async function loadAutoFillSetting() {
   try {
@@ -601,23 +602,17 @@ async function loadAutoFillSetting() {
   } catch {
     autoFillOnLoadEnabled = false;
   }
+  settingLoaded = true;
 }
 
-let attempts = 0;
-
-function init() {
+// Only auto-fill on load if the user has explicitly enabled it
+loadAutoFillSetting().then(() => {
   if (autoFillOnLoadEnabled) {
     autoFill();
   }
-  if (attempts < CONFIG.MAX_RETRIES) {
-    attempts++;
-    setTimeout(init, CONFIG.RETRY_DELAY);
-  }
-}
+});
 
-loadAutoFillSetting().then(() => init());
-
-// Observe for dynamic section loading (works for both modes)
+// MutationObserver: only fills when user has enabled auto-fill on load
 const observer = new MutationObserver(() => {
   if (autoFillOnLoadEnabled) autoFill();
 });
