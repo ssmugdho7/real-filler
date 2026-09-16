@@ -3,10 +3,12 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 
 // Create context menu on installation
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "fillForm",
-    title: "Fill this page (Real Filler)",
-    contexts: ["all"],
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "fillForm",
+      title: "Fill this page (Real Filler)",
+      contexts: ["all"],
+    });
   });
 });
 
