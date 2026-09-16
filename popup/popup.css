@@ -8,18 +8,26 @@
   --border: #dadce0;
 }
 
-body {
+html, body {
   width: 380px;
+  height: 500px;
   font-family: 'Google Sans', Roboto, Arial, sans-serif;
   margin: 0;
+  padding: 0;
   background-color: var(--bg);
   color: var(--text);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 .container {
   display: flex;
   flex-direction: column;
   height: 500px;
+  overflow: hidden;
 }
 
 header {
@@ -29,6 +37,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 h1 {
@@ -75,6 +84,7 @@ select {
   display: flex;
   background: white;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .tab-btn {
@@ -99,6 +109,7 @@ select {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  min-height: 0;
 }
 
 .tab-content.active {
@@ -168,6 +179,11 @@ footer {
   padding: 16px;
   background: white;
   border-top: 1px solid var(--border);
+  display: none;
+}
+
+footer.visible {
+  display: block;
 }
 
 .primary-btn {
@@ -285,4 +301,199 @@ footer {
   font-size: 0.75rem;
   color: #188038;
   min-height: 1em;
+}
+
+.template-lines {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.template-ref-group {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  border-left: 4px solid var(--primary);
+}
+
+.template-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  gap: 8px;
+  cursor: default;
+  user-select: none;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.template-line:last-child {
+  border-bottom: none;
+}
+
+.template-line-text {
+  flex: 1;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.template-line-text strong {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.template-line-text {
+  flex: 1;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.template-line-copy {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: var(--primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.template-line-copy:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.template-line-copy.copied {
+  background: #188038;
+  color: white;
+  border-color: #188038;
+}
+
+.candidate-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.candidate-selector label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.candidate-selector select {
+  flex: 1;
+}
+
+.candidate-details {
+  margin-bottom: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.candidate-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 10px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+}
+
+.candidate-field-label {
+  font-weight: 500;
+  color: #5f6368;
+  white-space: nowrap;
+  margin-right: 8px;
+  min-width: 120px;
+}
+
+.candidate-field-value {
+  flex: 1;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.candidate-field-value input,
+.candidate-field-value textarea {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.candidate-field-value textarea {
+  min-height: 40px;
+  resize: vertical;
+}
+
+.copy-field-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: var(--primary);
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.copy-field-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.copy-field-btn.copied {
+  background: #188038;
+  color: white;
+  border-color: #188038;
+}
+
+.references-section {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 8px;
+}
+
+.references-section h3 {
+  font-size: 0.9rem;
+  margin: 0 0 10px 0;
+  color: var(--primary);
+}
+
+.references-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reference-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.reference-card .candidate-field {
+  border: none;
+  padding: 4px 0;
+  margin-bottom: 0;
+  background: none;
 }

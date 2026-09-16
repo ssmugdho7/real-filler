@@ -1,3 +1,6 @@
+// Keep side panel open — only close on icon click
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
 // Create context menu on installation
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({

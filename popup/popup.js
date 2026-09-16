@@ -5,13 +5,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabBtns = document.querySelectorAll('.tab-btn');
   const tabContents = document.querySelectorAll('.tab-content');
   const manualFillBtn = document.getElementById('manual-fill-btn');
+  const mainFooter = document.getElementById('main-footer');
   const clearProfileBtn = document.getElementById('clear-profile');
   const clearAllBtn = document.getElementById('clear-all');
 
-  const templateInput = document.getElementById('template-input');
-  const templateSaveBtn = document.getElementById('template-save');
-  const templateClearBtn = document.getElementById('template-clear');
-  const templateStatus = document.getElementById('template-status');
+  const templateLines = document.getElementById('template-lines');
 
   const sentenceToggle = document.getElementById('sentence-autocomplete-toggle');
   const llmSettings = document.getElementById('llm-settings');
@@ -42,10 +40,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderData(profiles[currentProfile] || {});
     renderSettings(settings);
 
-    const tData = await chrome.storage.local.get(['templates']);
-    const templates = tData.templates || {};
-    templateInput.value = templates[currentProfile] || '';
-    templateStatus.textContent = '';
+    if (typeof DEFAULT_REFERENCES_TEXT !== 'undefined') {
+      renderTemplateLines(DEFAULT_REFERENCES_TEXT);
+    }
+
+    // Footer only on Learned Data tab
+    mainFooter.classList.remove('visible');
+  }
+
+  function renderTemplateLines(text) {
+    templateLines.innerHTML = '';
+    if (!text || !text.trim()) return;
+
+    const blocks = text.split(/\n\s*\n/).filter(b => b.trim());
+    blocks.forEach(block => {
+      const group = document.createElement('div');
+      group.className = 'template-ref-group';
+
+      const lines = block.split('\n').filter(l => l.trim());
+      lines.forEach(line => {
+        const value = line.includes(':') ? line.split(':').slice(1).join(':').trim() : line.trim();
+        const label = line.includes(':') ? line.split(':')[0].trim() : '';
+        const div = document.createElement('div');
+        div.className = 'template-line';
+        div.innerHTML = `
+          <span class="template-line-text"><strong>${label}:</strong> ${value}</span>
+          <button class="template-line-copy">Copy</button>
+        `;
+        div.querySelector('.template-line-copy').addEventListener('click', (e) => {
+          navigator.clipboard.writeText(value).then(() => {
+            const btn = e.target;
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+              btn.textContent = 'Copy';
+              btn.classList.remove('copied');
+            }, 1500);
+          });
+        });
+        group.appendChild(div);
+      });
+
+      templateLines.appendChild(group);
+    });
   }
 
   function renderSettings(settings) {
@@ -119,9 +156,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({ currentProfile: newProfile });
     const data = await chrome.storage.local.get('profiles');
     renderData(data.profiles[newProfile] || {});
-    const tData = await chrome.storage.local.get('templates');
-    templateInput.value = (tData.templates || {})[newProfile] || '';
-    templateStatus.textContent = '';
   });
 
   addProfileBtn.addEventListener('click', async () => {
@@ -138,6 +172,142 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // ===== CANDIDATE MANAGEMENT =====
+  const candidateSelect = document.getElementById('candidate-select');
+  const candidateDetails = document.getElementById('candidate-details');
+  const editCandidateBtn = document.getElementById('edit-candidate-btn');
+  const saveCandidateBtn = document.getElementById('save-candidate-btn');
+  const cancelCandidateBtn = document.getElementById('cancel-candidate-btn');
+
+  const CANDIDATE_FIELDS = [
+    { key: 'name', label: 'Full Name' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'email', label: 'Email' },
+    { key: 'address', label: 'Address' },
+    { key: 'compensation', label: 'Compensation' },
+    { key: 'academicTimeline', label: 'Academic Timeline' },
+    { key: 'birthDate', label: 'Birth Date' },
+    { key: 'openForRelocation', label: 'Open for Relocation' },
+    { key: 'protectedVeteran', label: 'Protected Veteran' },
+    { key: 'disability', label: 'Disability Status' },
+    { key: 'drivingLicense', label: 'Driving License' },
+    { key: 'visaType', label: 'Visa Type' },
+    { key: 'relocating', label: 'Relocating for Position' },
+    { key: 'peLicense', label: 'IL P.E. License' },
+    { key: 'notes', label: 'Notes' }
+  ];
+
+  async function getCandidates() {
+    const data = await chrome.storage.local.get('candidates');
+    return data.candidates || null;
+  }
+
+  async function initCandidates() {
+    let candidates = await getCandidates();
+    if (!candidates) {
+      candidates = CANDIDATES_DATA;
+      await chrome.storage.local.set({ candidates });
+    }
+
+    candidateSelect.innerHTML = '<option value="">-- Choose --</option>';
+    candidates.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      candidateSelect.appendChild(opt);
+    });
+  }
+
+  function renderCandidateDetails(candidate, editable) {
+    if (!candidate) {
+      candidateDetails.innerHTML = '<div class="empty-msg">Select a candidate to view details.</div>';
+      return;
+    }
+    candidateDetails.innerHTML = '';
+    CANDIDATE_FIELDS.forEach(field => {
+      const div = document.createElement('div');
+      div.className = 'candidate-field';
+      const val = candidate[field.key] || '';
+      if (editable) {
+        div.innerHTML = `
+          <span class="candidate-field-label">${field.label}</span>
+          <div class="candidate-field-value">
+            <input type="text" data-key="${field.key}" value="${val.replace(/"/g, '&quot;')}">
+          </div>
+        `;
+      } else {
+        div.innerHTML = `
+          <span class="candidate-field-label">${field.label}</span>
+          <span class="candidate-field-value">${val || '—'}</span>
+          ${val ? '<button class="copy-field-btn">Copy</button>' : ''}
+        `;
+        const copyBtn = div.querySelector('.copy-field-btn');
+        if (copyBtn) {
+          copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(val).then(() => {
+              copyBtn.textContent = 'Copied!';
+              copyBtn.classList.add('copied');
+              setTimeout(() => {
+                copyBtn.textContent = 'Copy';
+                copyBtn.classList.remove('copied');
+              }, 1500);
+            });
+          });
+        }
+      }
+      candidateDetails.appendChild(div);
+    });
+  }
+
+  candidateSelect.addEventListener('change', async () => {
+    const id = candidateSelect.value;
+    const candidates = await getCandidates();
+    const c = candidates.find(x => x.id === id);
+    renderCandidateDetails(c, false);
+    editCandidateBtn.style.display = '';
+    saveCandidateBtn.style.display = 'none';
+    cancelCandidateBtn.style.display = 'none';
+  });
+
+  editCandidateBtn.addEventListener('click', async () => {
+    const id = candidateSelect.value;
+    const candidates = await getCandidates();
+    const c = candidates.find(x => x.id === id);
+    renderCandidateDetails(c, true);
+    editCandidateBtn.style.display = 'none';
+    saveCandidateBtn.style.display = '';
+    cancelCandidateBtn.style.display = '';
+  });
+
+  cancelCandidateBtn.addEventListener('click', async () => {
+    const id = candidateSelect.value;
+    const candidates = await getCandidates();
+    const c = candidates.find(x => x.id === id);
+    renderCandidateDetails(c, false);
+    editCandidateBtn.style.display = '';
+    saveCandidateBtn.style.display = 'none';
+    cancelCandidateBtn.style.display = 'none';
+  });
+
+  saveCandidateBtn.addEventListener('click', async () => {
+    const id = candidateSelect.value;
+    const candidates = await getCandidates();
+    const idx = candidates.findIndex(x => x.id === id);
+    if (idx === -1) return;
+
+    candidateDetails.querySelectorAll('input[data-key]').forEach(input => {
+      candidates[idx][input.dataset.key] = input.value;
+    });
+
+    await chrome.storage.local.set({ candidates });
+    renderCandidateDetails(candidates[idx], false);
+    editCandidateBtn.style.display = '';
+    saveCandidateBtn.style.display = 'none';
+    cancelCandidateBtn.style.display = 'none';
+  });
+
+  initCandidates();
+
   // Tab Switching
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -145,6 +315,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       tabContents.forEach(c => c.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(`${btn.dataset.tab}-tab`).classList.add('active');
+      if (btn.dataset.tab === 'data') {
+        mainFooter.classList.add('visible');
+      } else {
+        mainFooter.classList.remove('visible');
+      }
     });
   });
 
@@ -155,28 +330,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         chrome.tabs.sendMessage(tabs[0].id, { action: 'manualFill' });
       }
     });
-  });
-
-  async function getTemplates() {
-    const data = await chrome.storage.local.get('templates');
-    return data.templates || {};
-  }
-
-  templateSaveBtn.addEventListener('click', async () => {
-    const current = profileSelect.value;
-    const templates = await getTemplates();
-    templates[current] = templateInput.value;
-    await chrome.storage.local.set({ templates });
-    templateStatus.textContent = 'Template saved for "' + current + '".';
-  });
-
-  templateClearBtn.addEventListener('click', async () => {
-    const current = profileSelect.value;
-    const templates = await getTemplates();
-    delete templates[current];
-    await chrome.storage.local.set({ templates });
-    templateInput.value = '';
-    templateStatus.textContent = 'Template cleared.';
   });
 
   clearProfileBtn.addEventListener('click', async () => {

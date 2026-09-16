@@ -108,6 +108,72 @@ function findInputLabel(input) {
   return '';
 }
 
+// ---------- Filter-bar vs Table-body scope (SPA-safe) ----------
+// Contract:
+// - ONLY persist controls inside the filter bar (`.filter-group` / `.filter-field`).
+// - NEVER learn from, and NEVER write to, anything inside the table body
+//   (table/tbody/thead/tfoot/tr/td/th or role=grid/row/gridcell, AG-Grid, etc.).
+//   Table cells are owned by the page/SPA: user edits there apply instantly
+//   without refresh and must never be clobbered by the extension.
+
+const FILTER_CONTAINER_SELECTOR = '.filter-group, .filter-bar, .filter-row, .filters-bar, [data-testid*="filter"], [data-test*="filter"]';
+const TABLE_BODY_SELECTOR = 'table, tbody, thead, tfoot, tr, td, th, [role="table"], [role="grid"], [role="rowgroup"], [role="row"], [role="gridcell"], [role="columnheader"], .table-body, .ag-center-cols-container, .ag-root, .ReactTable, .data-table';
+
+function isInTableBody(el) {
+  if (!el || !el.closest) return false;
+  try { return !!el.closest(TABLE_BODY_SELECTOR); } catch (e) { return false; }
+}
+
+function getFilterContainer() {
+  try {
+    // Prefer the explicit .filter-group the app uses; fall back to any filter container.
+    return document.querySelector('.filter-group') || document.querySelector(FILTER_CONTAINER_SELECTOR);
+  } catch (e) { return null; }
+}
+
+function isFilterControl(el) {
+  if (!el || !el.closest) return false;
+  try {
+    if (isInTableBody(el)) return false;
+    // Strict: if the page has a .filter-group, ONLY elements inside it are filters.
+    if (document.querySelector('.filter-group')) return !!el.closest('.filter-group');
+    // Fallback (no .filter-group on this page): filter containers / filter-ish aria-labels.
+    if (el.closest(FILTER_CONTAINER_SELECTOR)) return true;
+    const aria = ((el.getAttribute && el.getAttribute('aria-label')) || '').toLowerCase();
+    if (aria.includes('filter') || aria.includes('sort')) return true;
+    return false;
+  } catch (e) { return false; }
+}
+
+function findFilterLabel(el) {
+  if (!el) return '';
+  // 1. Sibling .filter-label inside the same .filter-field (the app's markup:
+  //    <div class="filter-field"><span class="filter-label">Candidate</span><select ...>).
+  try {
+    const field = el.closest('.filter-field');
+    if (field) {
+      const lab = field.querySelector('.filter-label');
+      if (lab && lab.textContent && lab.textContent.trim()) return normalize(lab.textContent);
+    }
+  } catch (e) {}
+  // 2. aria-label (e.g. "Filter by application stage", "Sort application queue").
+  try {
+    const aria = el.getAttribute && el.getAttribute('aria-label');
+    if (aria && aria.trim()) return normalize(aria);
+  } catch (e) {}
+  // 3. Generic label detection (label[for], placeholder, name, ...).
+  const generic = findInputLabel(el);
+  if (generic) return generic;
+  // 4. Placeholder / name / id as last resort.
+  try {
+    const ph = el.getAttribute && el.getAttribute('placeholder');
+    if (ph && ph.trim()) return normalize(ph);
+    const nm = el.getAttribute && (el.getAttribute('name') || el.id);
+    if (nm && String(nm).trim()) return normalize(String(nm).replace(/[_-]+/g, ' '));
+  } catch (e) {}
+  return '';
+}
+
 // ---------- Google Forms Field Detection ----------
 
 function getGoogleFormFields() {
@@ -148,6 +214,9 @@ function getGenericFormFields() {
 
   inputs.forEach(input => {
     if (seen.has(input)) return;
+    // SPA-safe scope: never touch the table body; filters are owned by filter memory.
+    if (isInTableBody(input)) return;
+    if (isFilterControl(input)) return;
     // Skip hidden inputs
     if (input.type === 'hidden' || input.offsetParent === null) return;
     // Skip search inputs — don't learn/fill search terms
@@ -160,10 +229,12 @@ function getGenericFormFields() {
     fields.push({ type: 'text', label, element: input, source: 'generic' });
   });
 
-  // Select elements
+  // Select elements (generic only — filter-bar selects are owned by filter memory)
   const selects = document.querySelectorAll('select');
   selects.forEach(select => {
     if (seen.has(select)) return;
+    if (isInTableBody(select)) return;
+    if (isFilterControl(select)) return;
     if (select.offsetParent === null) return;
 
     const label = findInputLabel(select);
@@ -177,6 +248,7 @@ function getGenericFormFields() {
   const radioGroups = {};
   document.querySelectorAll('input[type="radio"]').forEach(radio => {
     if (radio.offsetParent === null) return;
+    if (isInTableBody(radio) || isFilterControl(radio)) return;
     const name = radio.getAttribute('name') || '_ungrouped_' + Math.random();
     if (!radioGroups[name]) radioGroups[name] = [];
     radioGroups[name].push(radio);
@@ -202,6 +274,7 @@ function getGenericFormFields() {
   document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     if (seen.has(cb)) return;
     if (cb.offsetParent === null) return;
+    if (isInTableBody(cb) || isFilterControl(cb)) return;
 
     const label = findInputLabel(cb);
     if (!label) return;
@@ -287,6 +360,219 @@ function triggerEvents(el) {
   ['input', 'change', 'blur'].forEach(name => {
     el.dispatchEvent(new Event(name, { bubbles: true }));
   });
+}
+
+// ---------- Filter-Bar Persistence (SPA-safe, always on) ----------
+// Only watches `.filter-group` (the filter bar). Survives (hard) refresh: the
+// last manually-selected filter values are restored on load and only change
+// when the user manually changes them again. The table body is NEVER touched.
+
+function getFilterPageKey() {
+  try { return location.origin + location.pathname; }
+  catch (e) {
+    try { return location.href.split('?')[0].split('#')[0]; }
+    catch (_) { return 'default-page'; }
+  }
+}
+
+function getFilterKey(el, label, index) {
+  const tag = (el.tagName || 'field').toLowerCase();
+  const base = label || normalize((el.getAttribute && (el.getAttribute('name') || el.id)) || '') || ('field-' + index);
+  return tag + '|' + base;
+}
+
+function getFilterFields() {
+  const container = getFilterContainer();
+  if (!container) return [];
+  let els = [];
+  try {
+    els = Array.from(container.querySelectorAll(
+      'select, input[type="text"], input[type="search"], input:not([type]), ' +
+      'input[type="email"], input[type="url"], input[type="tel"], input[type="number"], textarea'
+    ));
+  } catch (e) { return []; }
+  const out = [];
+  els.forEach((el, idx) => {
+    try {
+      if (!el || el.type === 'hidden') return;
+      // Never treat table-embedded nodes as filters (defensive; container should exclude them).
+      if (isInTableBody(el)) return;
+      const label = findFilterLabel(el);
+      if (!label) return;
+      out.push({ label, key: getFilterKey(el, label, idx), element: el, type: el.tagName === 'SELECT' ? 'select' : 'text' });
+    } catch (e) {}
+  });
+  return out;
+}
+
+// Set a value the way SPA frameworks (React/Vue) will notice: use the native
+// setter when available, then dispatch input + change (no blur, so we never
+// steal focus or trigger validation while restoring).
+function setFilterValueNative(el, value) {
+  const str = value === null || value === undefined ? '' : String(value);
+  try {
+    let proto = null;
+    if (el.tagName === 'SELECT' && window.HTMLSelectElement) proto = window.HTMLSelectElement.prototype;
+    else if (el.tagName === 'TEXTAREA' && window.HTMLTextAreaElement) proto = window.HTMLTextAreaElement.prototype;
+    else if (window.HTMLInputElement) proto = window.HTMLInputElement.prototype;
+    const desc = proto && Object.getOwnPropertyDescriptor(proto, 'value');
+    if (desc && typeof desc.set === 'function') desc.set.call(el, str);
+    else el.value = str;
+  } catch (e) {
+    try { el.value = str; } catch (_) {}
+  }
+  try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+  try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+}
+
+let rfFilterRestoring = false;
+let rfFilterSaveTimer = null;
+let rfFilterObserveTimer = null;
+const rfFilterTouched = new WeakSet();
+
+async function saveFilterField(field) {
+  if (rfFilterRestoring) return;
+  try {
+    const pageKey = getFilterPageKey();
+    const val = field.element.value === null || field.element.value === undefined
+      ? '' : String(field.element.value);
+    const data = await chrome.storage.local.get('filterMemory');
+    const mem = data.filterMemory || {};
+    if (!mem[pageKey]) mem[pageKey] = {};
+    const prev = mem[pageKey][field.key];
+    if (prev && prev.value === val) return;
+    mem[pageKey][field.key] = { value: val, label: field.label, type: field.type, savedAt: Date.now() };
+    await chrome.storage.local.set({ filterMemory: mem });
+  } catch (e) {}
+}
+
+async function restoreFilterValues(reason) {
+  if (rfFilterRestoring) return;
+  let fields = [];
+  try { fields = getFilterFields(); } catch (e) { return; }
+  if (!fields.length) return;
+  let saved = null;
+  try {
+    const pageKey = getFilterPageKey();
+    const data = await chrome.storage.local.get('filterMemory');
+    saved = (data.filterMemory || {})[pageKey];
+  } catch (e) { return; }
+  if (!saved) return;
+  rfFilterRestoring = true;
+  try {
+    for (const f of fields) {
+      const entry = saved[f.key];
+      if (!entry) continue;
+      const el = f.element;
+      try {
+        // Never fight the user: skip focused or already-manually-touched controls
+        // on post-init passes. The initial pass still respects focus.
+        if (document.activeElement === el) continue;
+        if (reason !== 'init' && rfFilterTouched.has(el)) continue;
+        const want = entry.value === null || entry.value === undefined ? '' : String(entry.value);
+        if (f.type === 'select') {
+          // Options may load async (Candidate/Owner lists come from an API):
+          // if the saved option isn't present yet, wait for a later retry.
+          const options = Array.from(el.options || []);
+          const has = options.some(o => o.value === want);
+          if (!has) {
+            if (want === '' && el.value === '') continue;
+            if (want !== '') continue;
+          }
+          if (el.value !== want) setFilterValueNative(el, want);
+        } else {
+          if (el.value === want) continue;
+          // After init, don't overwrite non-empty text the SPA put there
+          // (e.g. defaults) — only fill empty boxes or re-assert on init.
+          if (reason !== 'init' && el.value !== '' && want !== '') continue;
+          setFilterValueNative(el, want);
+        }
+      } catch (e) {}
+    }
+  } finally {
+    rfFilterRestoring = false;
+  }
+}
+
+function attachFilterListeners() {
+  // Delegated so SPA re-renders of the filter bar keep working.
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!t || (t.tagName !== 'SELECT' && t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA')) return;
+    let isFilter = false;
+    try { isFilter = isFilterControl(t); } catch (err) { return; }
+    if (!isFilter) return;
+    if (rfFilterRestoring) return;
+    try { rfFilterTouched.add(t); } catch (err) {}
+    let fields = [];
+    try { fields = getFilterFields(); } catch (err) { return; }
+    const f = fields.find(x => x.element === t);
+    if (f) saveFilterField(f);
+  }, true);
+
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t || (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA')) return;
+    let isFilter = false;
+    try { isFilter = isFilterControl(t); } catch (err) { return; }
+    if (!isFilter) return;
+    if (rfFilterRestoring) return;
+    try { rfFilterTouched.add(t); } catch (err) {}
+    clearTimeout(rfFilterSaveTimer);
+    rfFilterSaveTimer = setTimeout(() => {
+      let fields = [];
+      try { fields = getFilterFields(); } catch (err) { return; }
+      const f = fields.find(x => x.element === t);
+      if (f) saveFilterField(f);
+    }, 300);
+  }, true);
+}
+
+function observeFilterBar() {
+  // Initial restores: immediate + delayed retries for async option lists.
+  restoreFilterValues('init');
+  setTimeout(() => restoreFilterValues('retry'), 500);
+  setTimeout(() => restoreFilterValues('retry'), 1500);
+  setTimeout(() => restoreFilterValues('retry'), 3000);
+
+  // Watch ONLY for filter-bar structure/option changes; table churn is ignored
+  // so SPA table edits never trigger a fill and never get overwritten.
+  const obs = new MutationObserver((mutations) => {
+    let relevant = false;
+    for (const m of mutations) {
+      try {
+        for (const n of (m.addedNodes || [])) {
+          if (!n || n.nodeType !== 1) continue;
+          if (typeof n.matches === 'function' && n.matches('.filter-group, .filter-field, select, input, textarea, option')) {
+            const inFilter = (n.closest && n.closest('.filter-group')) || n.classList?.contains('filter-group');
+            const isOptionOfFilter = n.tagName === 'OPTION' && m.target && m.target.tagName === 'SELECT' && isFilterControl(m.target);
+            if (inFilter || isOptionOfFilter) { relevant = true; break; }
+          }
+          if (n.querySelector && typeof n.querySelector === 'function') {
+            try {
+              if (n.querySelector('.filter-group, .filter-field, select, option')) {
+                // Only relevant if the subtree actually belongs to the filter bar.
+                const c = getFilterContainer();
+                if (c && (c === n || c.contains(n) || n.contains(c))) { relevant = true; break; }
+              }
+            } catch (e) {}
+          }
+          if (n.closest && typeof n.closest === 'function' && n.closest('.filter-group')) { relevant = true; break; }
+        }
+        if (relevant) break;
+        if (m.target && m.target.tagName === 'SELECT' && isFilterControl(m.target)) { relevant = true; break; }
+        if (m.target && m.target.closest && typeof m.target.closest === 'function' && m.target.closest('.filter-group')) { relevant = true; break; }
+      } catch (e) {}
+    }
+    if (!relevant) return;
+    clearTimeout(rfFilterObserveTimer);
+    rfFilterObserveTimer = setTimeout(() => restoreFilterValues('observe'), 120);
+  });
+  try {
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) {
+    try { obs.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+  }
 }
 
 // ---------- Template (Paste-to-Fill) Engine ----------
@@ -504,8 +790,11 @@ async function learnField(label, value) {
 
 // ---------- Event Listeners for Learning ----------
 
-// Text inputs / textareas — learn on blur
+// Text inputs / textareas — learn on blur (never from table body or filter bar)
 document.addEventListener('blur', (e) => {
+  try {
+    if (isInTableBody(e.target) || isFilterControl(e.target)) return;
+  } catch (err) {}
   const tag = e.target.tagName;
   const type = e.target.type;
   if (tag === 'INPUT' && !['text', 'email', 'password', 'url', 'tel', 'number'].includes(type) && type !== undefined) return;
@@ -535,9 +824,12 @@ document.addEventListener('click', (e) => {
       });
     }
   } else {
-    // Generic radios/checkboxes
+    // Generic radios/checkboxes (never from table body or filter bar)
     const input = e.target.closest('input[type="radio"], input[type="checkbox"]');
     if (input) {
+      try {
+        if (isInTableBody(input) || isFilterControl(input)) return;
+      } catch (err) {}
       const fields = getFormFields();
       const field = fields.find(f => f.elements && f.elements.includes(input));
       if (field) {
@@ -551,9 +843,13 @@ document.addEventListener('click', (e) => {
   }
 }, true);
 
-// Generic selects — learn on change
+// Generic selects — learn on change (never from table body or filter bar;
+// filters are owned by filter memory, which has its own change listener)
 document.addEventListener('change', (e) => {
   if (e.target.tagName === 'SELECT') {
+    try {
+      if (isInTableBody(e.target) || isFilterControl(e.target)) return;
+    } catch (err) {}
     const fields = getFormFields();
     const field = fields.find(f => f.element === e.target);
     if (field) {
@@ -605,18 +901,17 @@ async function loadAutoFillSetting() {
   settingLoaded = true;
 }
 
-// Only auto-fill on load if the user has explicitly enabled it
-loadAutoFillSetting().then(() => {
-  if (autoFillOnLoadEnabled) {
-    autoFill();
-  }
-});
+// Auto-fill on load is OFF by default.
+// Only fills when user clicks "Fill Current Page" button.
+loadAutoFillSetting();
 
-// MutationObserver: only fills when user has enabled auto-fill on load
-const observer = new MutationObserver(() => {
-  if (autoFillOnLoadEnabled) autoFill();
-});
-observer.observe(document.body, { childList: true, subtree: true });
+// Filter-bar persistence is ALWAYS on (independent of autoFillOnLoad): it owns
+// ONLY `.filter-group` controls and ignores the table body, so hard refresh
+// keeps the selected dropdowns while table edits stay instant/SPA-like.
+try {
+  attachFilterListeners();
+  observeFilterBar();
+} catch (e) {}
 
 // Listen for setting changes in real time
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -651,6 +946,10 @@ let saRequestId = 0;
 
 function isAutocompleteEligible(input) {
   if (!input) return false;
+  try {
+    if (isInTableBody(input)) return false;
+    if (isFilterControl(input)) return false;
+  } catch (e) {}
   const tag = input.tagName;
   if (tag !== 'INPUT' && tag !== 'TEXTAREA') return false;
   if (isSearchInput(input)) return false;
