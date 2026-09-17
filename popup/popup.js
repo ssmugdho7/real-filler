@@ -224,6 +224,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     candidateDetails.innerHTML = '';
+
+    // Standard fields
     CANDIDATE_FIELDS.forEach(field => {
       const div = document.createElement('div');
       div.className = 'candidate-field';
@@ -257,6 +259,88 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       candidateDetails.appendChild(div);
     });
+
+    // Custom fields
+    const customFields = candidate.customFields || {};
+    const customFieldsDiv = document.createElement('div');
+    customFieldsDiv.className = 'custom-fields-section';
+
+    const customLabel = document.createElement('h4');
+    customLabel.textContent = 'Additional Info';
+    customLabel.style.cssText = 'margin: 12px 0 8px 0; color: var(--primary); font-size: 0.85rem;';
+    customFieldsDiv.appendChild(customLabel);
+
+    const customList = document.createElement('div');
+    customList.className = 'custom-fields-list';
+    customList.id = 'custom-fields-list';
+
+    Object.entries(customFields).forEach(([key, value]) => {
+      const item = document.createElement('div');
+      item.className = 'custom-field-item';
+      item.innerHTML = `
+        <div class="custom-field-row">
+          <input type="text" class="custom-key" value="${key.replace(/"/g, '&quot;')}" placeholder="Key" ${editable ? '' : 'disabled'}>
+          <input type="text" class="custom-value" value="${value.replace(/"/g, '&quot;')}" placeholder="Value" ${editable ? '' : 'disabled'}>
+          <button class="copy-custom-btn">Copy</button>
+          ${editable ? '<button class="delete-custom-btn">✕</button>' : ''}
+        </div>
+      `;
+      // Copy button
+      const copyBtn = item.querySelector('.copy-custom-btn');
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(value).then(() => {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+        });
+      });
+      // Delete button (edit mode only)
+      if (editable) {
+        const delBtn = item.querySelector('.delete-custom-btn');
+        delBtn.addEventListener('click', () => {
+          item.remove();
+        });
+      }
+      customList.appendChild(item);
+    });
+
+    customFieldsDiv.appendChild(customList);
+
+    // Add button (edit mode only)
+    if (editable) {
+      const addBtn = document.createElement('button');
+      addBtn.className = 'add-custom-btn primary-btn small';
+      addBtn.textContent = '+ Add Field';
+      addBtn.addEventListener('click', () => {
+        const newItem = document.createElement('div');
+        newItem.className = 'custom-field-item';
+        newItem.innerHTML = `
+          <div class="custom-field-row">
+            <input type="text" class="custom-key" placeholder="Key">
+            <input type="text" class="custom-value" placeholder="Value">
+            <button class="copy-custom-btn">Copy</button>
+            <button class="delete-custom-btn">✕</button>
+          </div>
+        `;
+        // Copy handler for new item
+        newItem.querySelector('.copy-custom-btn').addEventListener('click', (e) => {
+          const valInput = e.target.parentElement.querySelector('.custom-value');
+          if (valInput) {
+            navigator.clipboard.writeText(valInput.value).then(() => {
+              e.target.textContent = 'Copied!';
+              setTimeout(() => { e.target.textContent = 'Copy'; }, 1500);
+            });
+          }
+        });
+        // Delete handler for new item
+        newItem.querySelector('.delete-custom-btn').addEventListener('click', () => {
+          newItem.remove();
+        });
+        customList.appendChild(newItem);
+      });
+      customFieldsDiv.appendChild(addBtn);
+    }
+
+    candidateDetails.appendChild(customFieldsDiv);
   }
 
   candidateSelect.addEventListener('change', async () => {
@@ -298,6 +382,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     candidateDetails.querySelectorAll('input[data-key]').forEach(input => {
       candidates[idx][input.dataset.key] = input.value;
     });
+
+    // Save custom fields
+    const customFields = {};
+    candidateDetails.querySelectorAll('.custom-field-row').forEach(row => {
+      const keyInput = row.querySelector('.custom-key');
+      const valueInput = row.querySelector('.custom-value');
+      if (keyInput && valueInput && keyInput.value.trim() && valueInput.value.trim()) {
+        customFields[keyInput.value.trim()] = valueInput.value.trim();
+      }
+    });
+    candidates[idx].customFields = customFields;
 
     await chrome.storage.local.set({ candidates });
     renderCandidateDetails(candidates[idx], false);

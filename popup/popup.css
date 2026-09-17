@@ -466,6 +466,90 @@ footer.visible {
   border-color: #188038;
 }
 
+.custom-fields-section {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.custom-fields-section h4 {
+  margin: 0 0 8px 0;
+  color: var(--primary);
+  font-size: 0.85rem;
+}
+
+.custom-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.custom-field-item {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.custom-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.custom-field-row input {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.custom-field-row input:disabled {
+  background: var(--bg);
+  border-color: transparent;
+}
+
+.custom-field-row .copy-custom-btn,
+.custom-field-row .delete-custom-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.custom-field-row .delete-custom-btn {
+  color: var(--danger);
+}
+
+.custom-field-row .delete-custom-btn:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.custom-field-row .copy-custom-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.custom-field-row .copy-custom-btn.copied {
+  background: #188038;
+  color: white;
+  border-color: #188038;
+}
+
+.add-custom-btn {
+  width: 100%;
+}
+
 .references-section {
   border-top: 1px solid var(--border);
   padding-top: 12px;
